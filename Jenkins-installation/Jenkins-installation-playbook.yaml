@@ -1,0 +1,8 @@
+---
+- hosts: Jenkins-servers
+  remote_user: ec2-user
+  become: yes
+  roles:
+    - Jenkins-setup
+#    - Plugins-installation
+   

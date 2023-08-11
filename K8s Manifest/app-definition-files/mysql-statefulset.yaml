@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+spec:
+  ports:
+  - port: 3306
+  clusterIP: None
+  selector:
+    app: mysql
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-set
+spec:
+  selector:
+    matchLabels:
+      app: mysql # has to match .spec.template.metadata.labels
+  serviceName: "mysql" # The name of the service I just defined in the above section
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: mysql # has to match .spec.selector.matchLabels
+    spec:
+      terminationGracePeriodSeconds: 10 # Gives the PODs 10 sec to shutdown before killing them, when the signal is to be send to them
+      containers:
+      - name: mysql
+        image: #Don't forget to add the customized one
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: mysql-store #claim create underneath
+          mountPath: /var/lib/mysql #default for mysql
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: secrets
+                key: MYSQL_ROOT_PASSWORD
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql-store
+    spec:
+      accessModes: 
+        - ReadWriteOnce
+      storageClassName: "manual"
+      resources:
+        requests:
+          storage: 5Gi
+
+# We create a headless service (by setting the ClusterIP to none), it creates a DNS entry to the backend POD and does no load balancing and proxing
+# Although the main purpose of a headless service is to create a DNS entry to the backend POD, but it's also the service that makes the frontend application access the statefulset (Creating another service with type ClusterIP is wrong and won't route traffic to the statefulset PODs, instead the headless service would do the trick, so add the name of the headless service in the configmap's variable "MYSQL_DATABASE_HOST"'s value and the headless service would route the traffic from the frontend to the PODs in the statefulset')
+# When the POD restarts, it points to the same POD in the statefull set as the DNS has not changed
+# selector in the service refers to the labels in the statefulset pods
+
+# Volume claiming can be done be either:
+# 1- Creating the PVC separately and call it in the statefulset definition file
+# 2- Defining it in the volumeClaimTemplates directly (it also needs to be called under spec section)
+# I have to use the same storageClassName, accessMode & storage capacity that defined in the PV file

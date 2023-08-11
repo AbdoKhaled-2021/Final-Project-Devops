@@ -1,0 +1,139 @@
+- name: Updating yum
+  yum:
+    name: yum
+    state: latest
+
+- name: Installing wget
+  yum:
+    name: wget
+    state: latest
+
+- name: installing openjdk software
+  command: amazon-linux-extras install java-openjdk11 -y
+
+- name: Setting up jenkins repo
+  get_url:
+    url: http://pkg.jenkins-ci.org/redhat/jenkins.repo
+    dest: /etc/yum.repos.d/jenkins.repo
+
+- name: Downloading jenkins key
+  rpm_key:
+    key: https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+    state: present
+
+- name: Installing jenkins software
+  yum:
+    name: jenkins
+    state: present
+
+- name: Start the service
+  service:
+    name: jenkins
+    enabled: true
+    state: started
+
+- name: Installing docker
+  yum:
+    name: docker
+    state: latest
+
+- name: Start the service
+  service:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Add a secondary group membership for the user
+  user:
+    name: ec2-user
+    groups: docker
+    append: yes
+
+- name: Apply read & write permissions to docker.sock
+  file:
+    path: /var/run/docker.sock
+    mode: '666'
+
+# Ref: https://stackoverflow.com/questions/53918841/how-to-install-docker-on-amazon-linux2
+
+- name: Installing git
+  yum:
+    name: git
+    state: latest
+
+- name: Download aws cli installation file
+  get_url:
+    url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+    dest: "./awscliv2.zip"
+
+- name: Unzip the aws cli installer
+  unarchive:
+    src: "./awscliv2.zip"
+    dest: "./"
+    remote_src: yes
+
+# - name: Install aws cli
+#   command: ./aws/install
+
+- name: Download kubectl installation file
+  get_url:
+    url: https://s3.us-west-2.amazonaws.com/amazon-eks/1.25.6/2023-01-30/bin/linux/amd64/kubectl
+    dest: "./"
+
+- name: Copy binary into
+  copy:
+    src: ./kubectl
+    dest: /usr/bin/kubectl
+    remote_src: yes
+
+- name: Apply execute permissions to kubectl binary
+  file:
+    path: /usr/bin/kubectl
+    mode: +x
+
+# References:
+# The epel step is not necessarily by the way in the above reference
+# The Jenkins project performs a full test flow with openjdk
+
+# - name: JENKINS-PASSTOKEN | Get initial authentication token
+#   shell: 'cat /var/lib/jenkins/secrets/initialAdminPassword'
+#   register: admin_auth_token
+
+# - name: Jenkins intial password
+#   debug:
+#     msg: "Jenkins intial password = {{admin_auth_token.stdout}}"
+
+# - name: JENKINS-CTEDENTIALS | Create CRUMB authentication request
+#   uri:
+#     url: 'http://{{ jenkins_url }}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,":",//crumb)'
+#     user: admin
+#     password: '{{ admin_auth_token.stdout }}'
+#     force_basic_auth: yes
+#     return_content: yes
+#   register: crumb
+
+# - name: JENKINS-CTEDENTIALS | Add Jenkins administration account
+#   uri:
+#     method: POST
+#     url: 'http://{{ jenkins_url }}/securityRealm/createAccountByAdmin'
+#     user: admin
+#     password: '{{ admin_auth_token.stdout }}'
+#     force_basic_auth: yes
+#     follow_redirects: all
+#     headers:
+#       Jenkins-Crumb: '{{ crumb.content.split(":")[1] }}'
+#       Cookie: '{{ crumb.set_cookie }}'
+#     # body: 'username=user2&password1=pass&password2=pass&fullname=fullname&email=bubba%40dummy.bg'
+#     body: 'username={{ jenkins_user }}&password1={{ jenkins_pass }}&password2={{ jenkins_pass }}&fullname={{ jenkins_fullname }}&email={{ jenkins_email }}'
+
+# - name: Install Jenkins plugins using password.
+#   jenkins_plugin:
+#     name: "{{ item.name | default(item) }}"
+#     version: "{{ item.version | default(omit) }}"
+#     url: "http://{{ jenkins_url }}"
+#     url_username: '{{ jenkins_user }}'
+#     url_password: '{{ jenkins_pass }}'
+#   with_items: 
+#     - Docker
+#     - Docker Pipeline
+#     - Maven Integration

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  MYSQL_DATABASE_DB: BucketList
+  MYSQL_DATABASE_HOST: mysql
+
+
+# MYSQL_DATABASE_HOST has the value of ClusterIP service exposing the db (The same as we did in docker-compose)

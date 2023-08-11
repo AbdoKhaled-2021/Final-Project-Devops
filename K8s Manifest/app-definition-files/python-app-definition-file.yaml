@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: python-app
+  name: python-app-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: python-app
+  template:
+    metadata:
+      labels:
+        app: python-app
+    spec:
+      containers:
+      - image: #Don't forget to add 
+        name: python-app
+        ports:
+        - containerPort: 5002
+        env:
+          - name: MYSQL_DATABASE_USER
+            valueFrom:
+              secretKeyRef:
+                name: secrets
+                key: MYSQL_DATABASE_USER
+          - name: MYSQL_DATABASE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: secrets
+                key: MYSQL_DATABASE_PASSWORD
+          - name: MYSQL_DATABASE_DB
+            valueFrom:
+              configMapKeyRef:
+                name: app-config
+                key: MYSQL_DATABASE_DB
+          - name: MYSQL_DATABASE_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: app-config
+                key: MYSQL_DATABASE_HOST
+        readinessProbe:
+          tcpSocket:
+            port: 5002
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 5002
+          initialDelaySeconds: 15
+          periodSeconds: 20
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: python-app-service
+spec:
+  type: ClusterIP
+  selector:
+    app: python-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5002

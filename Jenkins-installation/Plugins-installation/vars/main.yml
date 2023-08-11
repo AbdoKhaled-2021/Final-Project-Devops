@@ -1,0 +1,28 @@
+---
+jenkins_home: /var/lib/jenkins
+jenkins_hostname: 34.202.159.163
+jenkins_http_port: 8080
+jenkins_url_prefix: ""
+
+jenkins_plugins: 
+  - Docker
+  - Docker Pipeline
+  - Maven Integration
+# Plugin list can use the plugin name, or a name/version dict.
+#  - blueocean
+#  - name: influxdb
+#    version: "1.12.1"
+
+jenkins_plugins_state: present
+jenkins_plugin_updates_expiration: 86400
+jenkins_plugin_timeout: 30
+jenkins_plugins_install_dependencies: true
+jenkins_updates_url: "https://updates.jenkins.io"
+
+
+jenkins_admin_username: "Abdo99"
+jenkins_admin_password: "@Eng.011@"
+jenkins_admin_password_file: ""
+
+
+# Don't forget to add the instance's IP as a value to jenkins_hostname:

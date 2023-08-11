@@ -1,0 +1,23 @@
+version: "3.9"
+services:
+  python-app:
+    build: ./FlaskApp
+    container_name: python-app
+    depends_on:
+      - mysql-database
+    ports:
+      - "5002:5002"
+    environment:
+      MYSQL_DATABASE_USER: root
+      MYSQL_DATABASE_PASSWORD: UyNh4eve@6514
+      MYSQL_DATABASE_DB: BucketList
+      MYSQL_DATABASE_HOST: mysql-database
+
+
+  mysql-database:
+    build: ./MySQL_Queries
+    ports:
+      - "32000:3306"
+    container_name: mysql-database
+    environment:
+      MYSQL_ROOT_PASSWORD: UyNh4eve@6514

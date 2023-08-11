@@ -1,0 +1,71 @@
+Perquisites:
+	An S3 bucket in the name specified in the backend.tf file
+	Dynamodb table in the name specified in the backend.tf file & a partition key named LockID with type of String
+	Key pair named Jenkins.pem
+Creating the necessary infrastructure using terraform:
+	terraform init
+	terraform apply --var-file deployment.tfvars
+Install Jenkins using ansible:
+	cd into Jenkins-installation directory
+	Add the Jenkins EC2 instances's Public_IP into inventory.yaml file
+	ansible-playbook -i inventory.yaml –-private-key Jenkins.pem jenkins-installation-playbook.yaml
+Configure Jenkins:
+	Make sure docker, kubectl, aws cli & git are installed on the jenkins instance (and its slave, if any) ... Done using ansible
+	Create the admin user after reaching Jenkins using the browser on 3.227.231.199:8080
+	Install docker, docker pipeline, K8s and K8s CLi plugins 
+Install Nginx controller:
+	Use the Server that created the cluster (Not the jenkins server) Ref: "https://spacelift.io/blog/kubernetes-ingress"
+	To connect to the cluster: aws eks update-kubeconfig --region region-code --name cluster-name
+	Although the NLB and the nginx-controller were created in a different namespace other than the default, I can still deploy all the definition files including the ingress, the serviceaccount, secret, clusterrole(binding) and the application itself in the default namespace or any other namespace (The main thing is that jenkins has access through the cluster role to all the api groups needed to create deployments including the ingress api group)
+	If u would like to deploy the NLB and nginx-controller in the default namespace as well use the "nginx-controller-and-NLB.yaml" file instead of the file in the refrence
+Enable Jenkins to deploy on K8s (Ref: https://faun.pub/how-to-integrate-kubernetes-on-aws-eks-with-jenkins-the-devsecops-way-36d72407f302):
+	- Add Jenkins user as sudo:
+		sudo vim /etc/sudoers
+		jenkins ALL=(ALL) NOPASSWD: ALL
+	- We already used terraform to create EKS Read only policy. This is because an account must be able to list and describe clusters to use the update-kubeconfig AWS CLI command, which is required to connect with our clusters.
+	- Connect to Cluster and configure Service Account and clusterroles:
+		update kubeconfig on the new Jenkins server to connect to our cluster (This step is not necessary if u would add it to the jenkins file):
+			aws eks update-kubeconfig --region region-code --name cluster-name
+			Once done, you could access the clusterinfo from ~/.kube/config , but jenkins still can't perform any action
+		Connect to the cluster on the server used to create it:
+			aws eks update-kubeconfig --region region-code --name cluster-name
+		Create Service Account and get credentials from Cluster server (via admin role):
+			kubectl apply -f Jenkins-service-account.yaml (Ref: https://www.jenkins.io/doc/book/installing/kubernetes/)
+				We first create a service account
+				We create clusterrole that enables the service account to have deploying permissions (U can also create role instead of cluster role, but in this case it would be scoped to a namespace only)
+				we create rolebinding to attach this clusternrole to our service account
+		Extract the token to the plugin:
+				K8s no longer create secrets for Service account, that is why I created it manually in the Jenkins-service-account.yaml file
+				kubectl describe secret "Secret-name" ... We will use the token returned as it is (it is already decoded)
+		Add the secret token as a credential named "Service-account-token", because that is how it is named in Jenkinsfile:
+				Kind: Secret text
+		Add Kubernetes as a cloud:
+				Manage Jenkins -> Manage nodes and clouds -> Configure clouds -> Add a new cloud -> Kubernetes -> Kubernetes Cloud Details
+					i) For the Kubernetes URL, get it for your cluster from the kubeconfig fil (cat ~/.kube/config) .. You will find it in server: or from the GUI under "API server endpoint"
+					ii) For Credentials, select the previously created credentials
+					iii) Checkmark the Disable https certificate check box.
+				click on Test Connection, and you should get the Connected to Kubernetes message.
+
+Create a Webhook for Jenkins:
+	Ref: https://octopus.com/blog/jenkins-docker-ecr
+		Project's settings
+		Webhooks --> Add webhook
+		Fill out the following fields, leaving everything else as default.
+			- Payload URL - http://[jenkins-url-including-port]/github-webhook/
+			- Content type - application/json
+			- Which events would you like to trigger this webhook?- select Just the push event
+						
+Add github credentials (Username & token"with only repo scope") in jenkins
+	Account settings --> Developer settings --> Personal access tokens --> Tokens(classic) --> Generate new classic token
+
+Create a multibranch pipeline:
+	Branch Source:
+		Github (With the Git source the webhook does not work) --> Select the previously created credentials --> Add the private repo's URL
+		Behavior:
+			1- Discover branches --> All branches
+			2- Filter by name (with wildcards), if u would like to 
+	Bild configuration: Jenkinsfile
+
+Note that I did not need AWS credentials to be saved as credentials in jenkins	
+				
+	
